@@ -1,0 +1,82 @@
+version: '3.8'
+
+# Services
+services:
+
+  # Nginx Service
+  nginx:
+    image: nginx:1.19
+    ports:
+      - 80:80
+    volumes:
+      - ./src/php-translator:/var/www/php-translator
+      - ./.docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - php
+
+  # PHP Service
+  php:
+    image: gy812337967/yang:1.1
+    build: ./.docker/php
+    working_dir: /var/www/php-translator
+    volumes:
+      - ./src/php-translator:/var/www/php-translator
+      - ./.docker/php/mnt:/mnt
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./.docker/redis-data:/data
+
+  # Libreoffice Service
+  libreoffice:
+    image: swr.ae-ad-1.g42cloud.com/gomap/libreofficeonline:7-1-9
+    environment:
+      domain: groupoffice.example.com
+      username: admin
+      password: secret
+      extra_params: --o:ssl.enable=false --o:ssl.termination=true
+      DONT_GEN_SSL_CERT: 1
+    volumes:
+      - ./.docker/libreoffice/loolwsd:/etc/loolwsd
+      - ./src/php-translator/public/resource:/opt/prod/resource
+    cap_add:
+      - MKNOD
+    ports:
+      - "0.0.0.0:9980:9980"
+    restart:
+      unless-stopped
+      
+  # MySQL Service
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: translation
+    volumes:
+      - ./.docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - mysqldata:/var/lib/mysql
+    healthcheck:
+      test: mysqladmin ping -h 127.0.0.1 -u root --password=$$MYSQL_ROOT_PASSWORD
+      interval: 5s
+      retries: 10
+  # PhpMyAdmin Service
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:5
+    ports:
+      - 8081:80
+    environment:
+      PMA_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+# Volumes
+volumes:
+  lo_config_volume:
+  mysqldata:
