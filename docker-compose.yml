@@ -22,6 +22,14 @@ services:
     volumes:
       - ./src/php-translator:/var/www/php-translator
       - ./.docker/php/mnt:/mnt
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 4096M
+        reservations:
+          cpus: '0.05'
+          memory: 2048M
     depends_on:
       mysql:
         condition: service_healthy
